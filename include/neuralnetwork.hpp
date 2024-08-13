@@ -4,6 +4,7 @@
 
 #include "tensor_load.hpp"
 #include "layers.hpp"
+#include "conv2d.hpp"
 #include <memory>
 
 

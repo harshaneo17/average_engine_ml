@@ -6,7 +6,7 @@
 class INIT{
     public:
         virtual Tensor initialize(double n_rows,double n_cols){}
-}
+};
 
 class Glorot : public INIT{
     public:
