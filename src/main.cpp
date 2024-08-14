@@ -17,7 +17,7 @@ int main(int argc, char* argv[])
     auto linr = std::make_unique<Linear>(3,3);
     auto linr2 = std::make_unique<Linear>(3,3);
     auto linr3 = std::make_unique<Linear>(3,3);
-    auto conv2d = std::make_unique<Conv2D>(3,3,std::vector<int> {1,1});
+    auto conv2d = std::make_unique<Conv2D>(3,3,std::vector<size_t> {1,1});
     auto tanh_obj = std::make_unique<Tanh>();
 
     std::vector<std::unique_ptr<Layer>> layers;
