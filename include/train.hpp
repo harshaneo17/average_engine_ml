@@ -36,13 +36,14 @@ class Train{
         }
 
         
-        void train(NeuralNet &net,Tensor inputs,Tensor targets,int num_epochs,BatchIterator batchit,MSE mse,Optimizer optimizer){
+        void train(NeuralNet &net,Tensor inputs,Tensor targets,int num_epochs,BatchIterator batchit,Lossfunctions mse,Optimizer optimizer){
             std::cout << "Training Job started" << std::endl;
             for (size_t epoch = 0; epoch < num_epochs; epoch++){
                 double epoch_loss = 0.0;
                 std::vector<Batch> batches = batchit.initialize(inputs, targets);
                     for (size_t i = 0; i < batches.size(); i++) {
                         Tensor predicted = net.forward(batches[i].inputs);
+                        std::cout << "here" << std::endl;
                         epoch_loss  += mse.loss(predicted, batches[i].targets); 
                         Tensor grad = mse.grad(predicted, batches[i].targets);
                         net.backward(grad,batches[i].inputs);

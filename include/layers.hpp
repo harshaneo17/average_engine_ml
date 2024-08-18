@@ -20,7 +20,7 @@ struct Layer {
 class Linear : public Layer {
     public:
         /*computes output = inputs @ weights + biases*/
-        Linear (double input_size,double output_size) : input_class_size(input_size),output_class_size(output_size){}
+        Linear (double input_size,double output_size) : input_class_size(input_size),output_class_size(output_size){initialize();}
         Tensor weights,bias,grad_weights,grad_bias;
         Params params;
 
@@ -38,7 +38,6 @@ class Linear : public Layer {
                 W is the weight matrix of size m x p, where p is the number of output features.
                 b is the bias vector of size p.
                 Y is the output vector of size n x p*/
-            initialize();
             Tensor prod = inputs * params.weights;
             Tensor outputs = prod + params.bias;
             // std::cout << "These are outputs from forward" << outputs << std::endl;

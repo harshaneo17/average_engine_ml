@@ -56,6 +56,25 @@ class MAS : public Lossfunctions {
         }
 };
 
+class CrossEntropy : public Lossfunctions {
+    /* Cross-Entropy Loss */
+public:
+    double loss(Tensor predicted, Tensor actual)  override {
+        // Adding a small epsilon to avoid log(0)
+        const double epsilon = 1e-12;
+        Tensor predicted_clipped = xt::clip(predicted, epsilon, 1.0 - epsilon);
+        Tensor log_preds = xt::log(predicted_clipped);
+        Tensor loss = -xt::sum(actual * log_preds, {1}); // Sum over the class dimension
+        return xt::mean(loss)[0];
+    }
 
+    Tensor grad(Tensor predicted, Tensor actual)  override {
+        // Adding a small epsilon to avoid division by zero
+        const double epsilon = 1e-12;
+        Tensor predicted_clipped = xt::clip(predicted, epsilon, 1.0 - epsilon);
+        Tensor grad = -actual / predicted_clipped; // Gradient of the Cross-Entropy Loss
+        return grad;
+    }
+};
 
 #endif

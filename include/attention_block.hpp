@@ -23,7 +23,7 @@ struct AttentionParams {
 class Attention : public Layer {
 public:
     Attention(double input_size, double hidden_size)
-        : input_size(input_size), hidden_size(hidden_size) {}
+        : input_size(input_size), hidden_size(hidden_size) {initialize();}
 
     void initialize() {
         params.weights_query = xt::random::randn<double>({input_size, hidden_size});
@@ -35,18 +35,32 @@ public:
     }
 
     Tensor forward(Tensor inputs) override {
-        initialize();
 
-        Tensor queries = dot(inputs, params.weights_query) + params.bias_query;
-        Tensor keys = dot(inputs, params.weights_key) + params.bias_key;
-        Tensor values = dot(inputs, params.weights_value) + params.bias_value;
+        // inputs shape: (batch_size, seq_len, input_size)
+        auto batch_size = inputs.shape()[0];
+        auto seq_len = inputs.shape()[1];
 
-        Tensor scores = dot(queries, xt::transpose(keys)) / std::sqrt(hidden_size);
+        Tensor queries = dot(inputs, params.weights_query);
+        queries = queries + xt::view(params.bias_query, xt::newaxis(), xt::all());
+        
+        Tensor keys = dot(inputs, params.weights_key);
+        keys = keys + xt::view(params.bias_key, xt::newaxis(), xt::all());
+        
+        Tensor values = dot(inputs, params.weights_value);
+        values = values + xt::view(params.bias_value, xt::newaxis(), xt::all());
+
+        // Transpose keys for batch matrix multiplication
+        auto keys_t = xt::transpose(keys, {0, 2, 1});
+
+        Tensor scores = dot(queries, keys_t) / std::sqrt(hidden_size);
 
         Softmax softmax;
         Tensor attention_weights = softmax.forward(scores);
 
         Tensor output = dot(attention_weights, values);
+
+        // Flatten the output
+        output = output.reshape({batch_size, static_cast<size_t>(seq_len * hidden_size)});
 
         this->queries = queries;
         this->keys = keys;
@@ -88,28 +102,69 @@ private:
     AttentionParams params;
 
     Tensor dot(const Tensor& a, const Tensor& b) {
-    if (a.dimension() != 2 || b.dimension() != 2) {
-        throw std::invalid_argument("Dot product requires 2D tensors");
-    }
-
+    auto a_dims = a.dimension();
+    auto b_dims = b.dimension();
     auto a_shape = a.shape();
     auto b_shape = b.shape();
 
-    if (a_shape[1] != b_shape[0]) {
-        throw std::invalid_argument("Shapes of input tensors are incompatible for dot product");
-    }
+    if (a_dims == 2 && b_dims == 2) {
+        // 2D x 2D
+        if (a_shape[1] != b_shape[0]) {
+            throw std::invalid_argument("Shapes of input tensors are incompatible for dot product");
+        }
 
-    Tensor result = xt::zeros<double>({a_shape[0], b_shape[1]});
+        Tensor result = xt::zeros<double>({a_shape[0], b_shape[1]});
 
-    for (size_t i = 0; i < a_shape[0]; ++i) {
-        for (size_t j = 0; j < b_shape[1]; ++j) {
-            for (size_t k = 0; k < a_shape[1]; ++k) {
-                result(i, j) += a(i, k) * b(k, j);
+        for (size_t i = 0; i < a_shape[0]; ++i) {
+            for (size_t j = 0; j < b_shape[1]; ++j) {
+                for (size_t k = 0; k < a_shape[1]; ++k) {
+                    result(i, j) += a(i, k) * b(k, j);
+                }
             }
         }
-    }
 
-    return result;
+        return result;
+    } else if (a_dims == 3 && b_dims == 3) {
+        // 3D x 3D (batch matrix multiplication)
+        if (a_shape[0] != b_shape[0] || a_shape[2] != b_shape[1]) {
+            throw std::invalid_argument("Shapes of input tensors are incompatible for dot product");
+        }
+
+        Tensor result = xt::zeros<double>({a_shape[0], a_shape[1], b_shape[2]});
+
+        for (size_t n = 0; n < a_shape[0]; ++n) {
+            for (size_t i = 0; i < a_shape[1]; ++i) {
+                for (size_t j = 0; j < b_shape[2]; ++j) {
+                    for (size_t k = 0; k < a_shape[2]; ++k) {
+                        result(n, i, j) += a(n, i, k) * b(n, k, j);
+                    }
+                }
+            }
+        }
+
+        return result;
+    } else if (a_dims == 3 && b_dims == 2) {
+        // 3D x 2D (special case for attention weights)
+        if (a_shape[2] != b_shape[0]) {
+            throw std::invalid_argument("Shapes of input tensors are incompatible for dot product");
+        }
+
+        Tensor result = xt::zeros<double>({a_shape[0], a_shape[1], b_shape[1]});
+
+        for (size_t n = 0; n < a_shape[0]; ++n) {
+            for (size_t i = 0; i < a_shape[1]; ++i) {
+                for (size_t j = 0; j < b_shape[1]; ++j) {
+                    for (size_t k = 0; k < a_shape[2]; ++k) {
+                        result(n, i, j) += a(n, i, k) * b(k, j);
+                    }
+                }
+            }
+        }
+
+        return result;
+    } else {
+        throw std::invalid_argument("Dot product requires 2D or 3D tensors");
+    }
 }
 
 };
