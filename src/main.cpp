@@ -14,6 +14,7 @@ int main(int argc, char* argv[])
     Tensor arr2
       {{5.0, 6.0, 7.0}};
 
+    auto attention_layer = std::make_unique<Attention>(3, 3);
     auto linr = std::make_unique<Linear>(3,3);
     auto linr2 = std::make_unique<Linear>(3,3);
     auto linr3 = std::make_unique<Linear>(3,3);
@@ -21,6 +22,7 @@ int main(int argc, char* argv[])
 
     std::vector<std::unique_ptr<Layer>> layers;
     layers.push_back(std::move(linr));
+    layers.push_back(std::move(attention_layer));
     layers.push_back(std::move(linr2));
     layers.push_back(std::move(linr3));
     layers.push_back(std::move(tanh_obj));
