@@ -38,10 +38,14 @@ class Linear : public Layer {
                 W is the weight matrix of size m x p, where p is the number of output features.
                 b is the bias vector of size p.
                 Y is the output vector of size n x p*/
-            Tensor prod = inputs * params.weights;
-            Tensor outputs = prod + params.bias;
-            // std::cout << "These are outputs from forward" << outputs << std::endl;
-            return outputs;
+            auto batch_size = inputs.shape()[0];
+            auto seq_len = inputs.shape()[1];
+            inputs = inputs.reshape({batch_size * seq_len, static_cast<unsigned long>(input_class_size)});
+            
+            Tensor output = dot(inputs, weights) + bias;
+            output = output.reshape({batch_size, seq_len, static_cast<unsigned long>(output_class_size)});
+            return output;
+
         }
 
         Tensor backward(Tensor grad, Tensor inputs) override {
@@ -67,6 +71,72 @@ class Linear : public Layer {
         private:
             double input_class_size;
             double output_class_size;
+
+            Tensor dot(const Tensor& a, const Tensor& b) {
+            auto a_dims = a.dimension();
+            auto b_dims = b.dimension();
+            auto a_shape = a.shape();
+            auto b_shape = b.shape();
+
+            if (a_dims == 2 && b_dims == 2) {
+                // 2D x 2D
+                if (a_shape[1] != b_shape[0]) {
+                    throw std::invalid_argument("Shapes of input tensors are incompatible for dot product");
+                }
+
+                Tensor result = xt::zeros<double>({a_shape[0], b_shape[1]});
+
+                for (size_t i = 0; i < a_shape[0]; ++i) {
+                    for (size_t j = 0; j < b_shape[1]; ++j) {
+                        for (size_t k = 0; k < a_shape[1]; ++k) {
+                            result(i, j) += a(i, k) * b(k, j);
+                        }
+                    }
+                }
+
+                return result;
+            } else if (a_dims == 3 && b_dims == 3) {
+                // 3D x 3D (batch matrix multiplication)
+                if (a_shape[0] != b_shape[0] || a_shape[2] != b_shape[1]) {
+                    throw std::invalid_argument("Shapes of input tensors are incompatible for dot product");
+                }
+
+                Tensor result = xt::zeros<double>({a_shape[0], a_shape[1], b_shape[2]});
+
+                for (size_t n = 0; n < a_shape[0]; ++n) {
+                    for (size_t i = 0; i < a_shape[1]; ++i) {
+                        for (size_t j = 0; j < b_shape[2]; ++j) {
+                            for (size_t k = 0; k < a_shape[2]; ++k) {
+                                result(n, i, j) += a(n, i, k) * b(n, k, j);
+                            }
+                        }
+                    }
+                }
+
+                return result;
+            } else if (a_dims == 3 && b_dims == 2) {
+                // 3D x 2D (special case for attention weights)
+                if (a_shape[2] != b_shape[0]) {
+                    throw std::invalid_argument("Shapes of input tensors are incompatible for dot product");
+                }
+
+                Tensor result = xt::zeros<double>({a_shape[0], a_shape[1], b_shape[1]});
+
+                for (size_t n = 0; n < a_shape[0]; ++n) {
+                    for (size_t i = 0; i < a_shape[1]; ++i) {
+                        for (size_t j = 0; j < b_shape[1]; ++j) {
+                            for (size_t k = 0; k < a_shape[2]; ++k) {
+                                result(n, i, j) += a(n, i, k) * b(k, j);
+                            }
+                        }
+                    }
+                }
+
+                return result;
+            } else {
+                throw std::invalid_argument("Dot product requires 2D or 3D tensors");
+            }
+        }
 
 };
 

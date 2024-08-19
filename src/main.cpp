@@ -27,18 +27,15 @@ int main() {
         {0.0, 1.0, 0.0}   // Label for class 2
     };
 
-    // Define the layers
-    auto attention_layer = std::make_unique<Attention>(10, 64);  // Input size 10 (embedding dimension), hidden size 64
-    auto activation1 = std::make_unique<Tanh>();
-    auto output_layer = std::make_unique<Linear>(64, 3);         // Output size 3 (for 3 classes)
-    auto activation2 = std::make_unique<Softmax>();
+    auto attention_layer = std::make_unique<Attention>(10, 64);
+    auto linear_layer = std::make_unique<Linear>(64, 3);  // 64 is the hidden size, 3 is the number of classes
+    auto softmax_layer = std::make_unique<Softmax>();
 
     // Add layers to the network
     std::vector<std::unique_ptr<Layer>> layers;
     layers.push_back(std::move(attention_layer));
-    layers.push_back(std::move(activation1));
-    layers.push_back(std::move(output_layer));
-    layers.push_back(std::move(activation2));
+    // layers.push_back(std::move(linear_layer));
+    layers.push_back(std::move(softmax_layer));
 
     // Create neural network
     NeuralNet nn(std::move(layers));
@@ -46,12 +43,13 @@ int main() {
     // Training parameters
     int num_epochs = 20;
     BatchIterator batch_it(1, true);
-    CrossEntropy ce_loss;  // Assuming you have a cross-entropy loss class
+    CrossEntropy ce_loss;
+    MSE mse;  // Assuming you have a cross-entropy loss class
     Adam optim(0.001);
 
     // Train the network
     Train train_obj;
-    train_obj.train(nn, input_data, target_data, num_epochs, batch_it, ce_loss, optim);
+    train_obj.train(nn, input_data, target_data, num_epochs, batch_it, mse, optim);
 
     return 0;
 }

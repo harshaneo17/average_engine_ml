@@ -35,40 +35,44 @@ public:
     }
 
     Tensor forward(Tensor inputs) override {
+        std::cout << "Input shape: " << xt::adapt(inputs.shape()) << std::endl;
 
-        // inputs shape: (batch_size, seq_len, input_size)
-        auto batch_size = inputs.shape()[0];
-        auto seq_len = inputs.shape()[1];
+        auto batch_size = static_cast<size_t>(inputs.shape()[0]);
+        auto seq_len = static_cast<size_t>(inputs.shape()[1]);
 
-        Tensor queries = dot(inputs, params.weights_query);
+        Tensor queries = dot(inputs, params.weights_query);  // Shape: (batch_size, seq_len, hidden_size)
         queries = queries + xt::view(params.bias_query, xt::newaxis(), xt::all());
-        
-        Tensor keys = dot(inputs, params.weights_key);
+        std::cout << "Queries shape: " << xt::adapt(queries.shape()) << std::endl;
+
+        Tensor keys = dot(inputs, params.weights_key);  // Shape: (batch_size, seq_len, hidden_size)
         keys = keys + xt::view(params.bias_key, xt::newaxis(), xt::all());
-        
-        Tensor values = dot(inputs, params.weights_value);
+        std::cout << "Keys shape: " << xt::adapt(keys.shape()) << std::endl;
+
+        Tensor values = dot(inputs, params.weights_value);  // Shape: (batch_size, seq_len, hidden_size)
         values = values + xt::view(params.bias_value, xt::newaxis(), xt::all());
+        std::cout << "Values shape: " << xt::adapt(values.shape()) << std::endl;
 
-        // Transpose keys for batch matrix multiplication
-        auto keys_t = xt::transpose(keys, {0, 2, 1});
+        auto keys_t = xt::transpose(keys, {0, 2, 1});  // Transposing for dot product with queries
+        std::cout << "Transposed keys shape: " << xt::adapt(keys_t.shape()) << std::endl;
 
-        Tensor scores = dot(queries, keys_t) / std::sqrt(hidden_size);
+        Tensor scores = dot(queries, keys_t) / std::sqrt(hidden_size);  // Shape: (batch_size, seq_len, seq_len)
+        std::cout << "Scores shape: " << xt::adapt(scores.shape()) << std::endl;
 
         Softmax softmax;
-        Tensor attention_weights = softmax.forward(scores);
+        Tensor attention_weights = softmax.forward(scores);  // Shape: (batch_size, seq_len, seq_len)
+        std::cout << "Attention weights shape: " << xt::adapt(attention_weights.shape()) << std::endl;
 
-        Tensor output = dot(attention_weights, values);
+        Tensor output = dot(attention_weights, values);  // Shape: (batch_size, seq_len, hidden_size)
+        std::cout << "Output shape: " << xt::adapt(output.shape()) << std::endl;
 
-        // Flatten the output
-        output = output.reshape({batch_size, static_cast<size_t>(seq_len * hidden_size)});
-
-        this->queries = queries;
-        this->keys = keys;
-        this->values = values;
-        this->attention_weights = attention_weights;
+        // Ensure that the output has the correct shape for the next layer (e.g., Linear layer)
+        output = output.reshape({batch_size, static_cast<size_t>(hidden_size)});
+        std::cout << "Reshaped output shape: " << xt::adapt(output.shape()) << std::endl;
 
         return output;
+
     }
+
 
     Tensor backward(Tensor grad, Tensor inputs) override {
         Tensor grad_values = dot(xt::transpose(attention_weights), grad);

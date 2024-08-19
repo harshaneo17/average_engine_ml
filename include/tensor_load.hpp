@@ -9,6 +9,7 @@
 #include <xtensor/xio.hpp>
 #include <xtensor/xmath.hpp>
 #include <xtensor/xbuilder.hpp>
+#include <xtensor/xadapt.hpp>
 #include <cmath>
 #include <iostream>
 #include <vector>

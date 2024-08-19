@@ -57,20 +57,40 @@ private:
 
 class Softmax : public Layer {
 public:
-    Tensor forward(Tensor inputs) override {
-        return softmax(inputs);
+    Tensor forward(Tensor x) override {
+        auto shape = x.shape();
+        auto max_vals = xt::amax(x, {1});
+        
+        // Convert max_vals to a regular tensor and then reshape
+        Tensor max_vals_tensor = max_vals;
+        std::vector<size_t> new_shape(shape.size(), 1);
+        new_shape[0] = shape[0];
+        auto max_vals_reshaped = max_vals_tensor.reshape(new_shape);
+        
+        auto exp_vals = xt::exp(x - max_vals_reshaped);
+        auto sum_exp = xt::sum(exp_vals, {1});
+        
+        // Convert sum_exp to a regular tensor and then reshape
+        Tensor sum_exp_tensor = sum_exp;
+        auto sum_exp_reshaped = sum_exp_tensor.reshape(new_shape);
+        
+        return exp_vals / sum_exp_reshaped;
     }
 
-    Tensor backward(Tensor grad,Tensor inputs) override {
-        auto softmax_output = softmax(inputs);
-        return softmax_output * (1 - softmax_output); // Approximate derivative for softmax
-    }
-
-private:
-    Tensor softmax(Tensor& x) {
-        auto exp_values = xt::exp(x);
-        auto exp_values_sum = xt::sum(exp_values, 1);
-        return exp_values / exp_values_sum;
+    Tensor backward(Tensor grad, Tensor inputs) override {
+        auto softmax_output = forward(inputs);
+        auto shape = softmax_output.shape();
+        
+        // Compute sum(grad * softmax_output) along axis 1
+        auto sum_grad_softmax = xt::sum(grad * softmax_output, {1});
+        
+        // Convert sum_grad_softmax to a regular tensor and then reshape
+        Tensor sum_grad_softmax_tensor = sum_grad_softmax;
+        std::vector<size_t> new_shape(shape.size(), 1);
+        new_shape[0] = shape[0];
+        auto sum_grad_softmax_reshaped = sum_grad_softmax_tensor.reshape(new_shape);
+        
+        return softmax_output * (grad - sum_grad_softmax_reshaped);
     }
 };
 
